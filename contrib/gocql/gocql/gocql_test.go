@@ -93,6 +93,36 @@ func TestErrorWrapper(t *testing.T) {
 	}
 }
 
+func TestErrorWrapperErrorNotFound(t *testing.T) {
+	assert := assert.New(t)
+	mt := mocktracer.Start()
+	defer mt.Stop()
+
+	cluster := newCassandraCluster()
+	session, err := cluster.CreateSession()
+	assert.Nil(err)
+	q := session.Query("select name from trace.person where name = ?", "foobar")
+	iter := WrapQuery(q, WithServiceName("ServiceName"), WithResourceName("select unknown"), WithIgnoreNotFound()).Iter()
+	err = iter.Close()
+
+	spans := mt.FinishedSpans()
+	assert.Len(spans, 1)
+	span := spans[0]
+
+	assert.Equal(span.Tag(ext.Error).(error), err)
+	assert.Equal(span.OperationName(), ext.CassandraQuery)
+	assert.Equal(span.Tag(ext.ResourceName), "select unknown")
+	assert.Equal(span.Tag(ext.ServiceName), "ServiceName")
+	assert.Equal(span.Tag(ext.CassandraConsistencyLevel), "QUORUM")
+	assert.Equal(span.Tag(ext.CassandraPaginated), "false")
+
+	if iter.Host() != nil {
+		assert.Equal(span.Tag(ext.TargetPort), "9042")
+		assert.Equal(span.Tag(ext.TargetHost), iter.Host().HostID())
+		assert.Equal(span.Tag(ext.CassandraCluster), "datacenter1")
+	}
+}
+
 func TestChildWrapperSpan(t *testing.T) {
 	assert := assert.New(t)
 	mt := mocktracer.Start()

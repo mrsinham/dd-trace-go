@@ -12,6 +12,7 @@ import (
 )
 
 type queryConfig struct {
+	ignoreNotFound            bool
 	serviceName, resourceName string
 	noDebugStack              bool
 	analyticsRate             float64
@@ -78,5 +79,13 @@ func WithAnalyticsRate(rate float64) WrapOption {
 func NoDebugStack() WrapOption {
 	return func(cfg *queryConfig) {
 		cfg.noDebugStack = true
+	}
+}
+
+// WithIgnoreNotFound prevents spans to be marked as error if the Query returns no
+// results.
+func WithIgnoreNotFound() WrapOption {
+	return func(cfg *queryConfig) {
+		cfg.ignoreNotFound = true
 	}
 }

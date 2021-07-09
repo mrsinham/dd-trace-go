@@ -8,6 +8,7 @@ package gocql // import "gopkg.in/DataDog/dd-trace-go.v1/contrib/gocql/gocql"
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -98,11 +99,16 @@ func (tq *Query) newChildSpan(ctx context.Context) ddtrace.Span {
 }
 
 func (tq *Query) finishSpan(span ddtrace.Span, err error) {
-	if tq.params.config.noDebugStack {
-		span.Finish(tracer.WithError(err), tracer.NoDebugStack())
+	if tq.params.config.ignoreNotFound && errors.Is(err, gocql.ErrNotFound) {
+		span.Finish()
 	} else {
-		span.Finish(tracer.WithError(err))
+		if tq.params.config.noDebugStack {
+			span.Finish(tracer.WithError(err), tracer.NoDebugStack())
+		} else {
+			span.Finish(tracer.WithError(err))
+		}
 	}
+
 }
 
 // Exec is rewritten so that it passes by our custom Iter
